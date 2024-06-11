@@ -38,6 +38,7 @@ namespace simulatedDevice
         private static async void ReceiveC2dAsync()
         {
             Console.WriteLine("\nReceiving cloud to device messages from service");
+
             while (true)
             {
                 registryManager = RegistryManager.CreateFromConnectionString("HostName=iothub-deusto.azure-devices.net;SharedAccessKeyName=service;SharedAccessKey=b9UWI1NdpA0lvAV6NMJ44G25pGzAOJnGNAIoTKukjgg=");
@@ -45,20 +46,35 @@ namespace simulatedDevice
 
                 ClientMessage receivedMessage = await s_deviceClient.ReceiveAsync();
                 if (receivedMessage == null) continue;
+
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 String message = Encoding.ASCII.GetString(receivedMessage.GetBytes());
                 Console.WriteLine("Received message: {0}", message);
+
                 List<String> desiredProperties = ReadDesiredProperties(message, twin);
-                string jsonPatch = $@"{{
-                    'properties': {{
-                        'desired': {{
-                            'frecuency': '{desiredProperties[1]}',
-                            'reducir_consumo': '{desiredProperties[2]}',
-                        }}
-                    }}
-                }}";
+
+                string jsonPatch = @"{ 'properties': { 'desired': {";
+                if (desiredProperties.Count > 0 && !string.IsNullOrEmpty(desiredProperties[0]))
+                {
+                    jsonPatch += $"'mode_': '{desiredProperties[0]}',";
+                }
+                if (desiredProperties.Count > 1 && !string.IsNullOrEmpty(desiredProperties[1]))
+                {
+                    jsonPatch += $"'furnance1Fixed_': '{desiredProperties[1]}',";
+                }
+                if (desiredProperties.Count > 2 && !string.IsNullOrEmpty(desiredProperties[2]))
+                {
+                    jsonPatch += $"'furnance2Fixed_': '{desiredProperties[2]}',";
+                }
+                if (desiredProperties.Count > 3 && !string.IsNullOrEmpty(desiredProperties[3]))
+                {
+                    jsonPatch += $"'freq_': '{desiredProperties[3]}',";
+                }
+                jsonPatch = jsonPatch.TrimEnd(','); 
+                jsonPatch += "} } }";
+
                 await registryManager.UpdateTwinAsync(twin.DeviceId, jsonPatch, twin.ETag);
-                Console.WriteLine("json actualizado");
+                Console.WriteLine("Device Twin actualizado");
                 Console.ResetColor();
 
                 await s_deviceClient.CompleteAsync(receivedMessage);
@@ -66,19 +82,49 @@ namespace simulatedDevice
         }
         private static List<String> ReadDesiredProperties(String message, Twin twin) {
             List<String> properties = new List<String>();
-            String[] datas = message.Split(",");
-            foreach (String s in datas) {
-                String[] datas2 = s.Split(":");
-                if (datas2[0] == "frecuency") {
-                    properties.Add(datas2[1]);
-                } else {
-                    properties.Add(twin.Properties.Desired["frecuency"]);
+
+            try {
+                JObject jsonMessage = JObject.Parse(message);
+
+                if (jsonMessage.TryGetValue("mode_", out JToken modeToken))
+                {
+                    properties.Add(modeToken.ToString());
                 }
-                if (datas2[0] == "reducir_consumo") {
-                    properties.Add(datas2[1]);
-                } else {
-                    properties.Add(twin.Properties.Desired["reducir_consumo"]);
+                else if (twin.Properties.Desired.Contains("mode_"))
+                {
+                    properties.Add(twin.Properties.Desired["mode_"].ToString());
                 }
+
+                if (jsonMessage.TryGetValue("furnance1Fixed_", out JToken furnance1Token))
+                {
+                    properties.Add(furnance1Token.ToString());
+                }
+                else if (twin.Properties.Desired.Contains("furnance1Fixed_"))
+                {
+                    properties.Add(twin.Properties.Desired["furnance1Fixed_"].ToString());
+                }
+
+                if (jsonMessage.TryGetValue("furnance2Fixed_", out JToken furnance2Token))
+                {
+                    properties.Add(furnance2Token.ToString());
+                }
+                else if (twin.Properties.Desired.Contains("furnance2Fixed_"))
+                {
+                    properties.Add(twin.Properties.Desired["furnance2Fixed_"].ToString());
+                }
+
+                if (jsonMessage.TryGetValue("freq_", out JToken freqToken))
+                {
+                    properties.Add(freqToken.ToString());
+                }
+                else if (twin.Properties.Desired.Contains("freq_"))
+                {
+                    properties.Add(twin.Properties.Desired["freq_"].ToString());
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error al parsear el mensaje JSON: {ex.Message}");
             }
 
             return properties;

@@ -7,21 +7,13 @@
 using System;
 using Microsoft.Azure.Devices.Client;
 using Microsoft.Azure.Devices;
-using Newtonsoft.Json;
 using System.Text;
-using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.IO;
 using Microsoft.Azure.Devices.Shared;
 using Newtonsoft.Json.Linq;
-using System.Linq;
 
 using ClientMessage = Microsoft.Azure.Devices.Client.Message;
-using DevicesMessage = Microsoft.Azure.Devices.Message;
-
 using ClientTransportType = Microsoft.Azure.Devices.Client.TransportType;
-using DevicesTransportType = Microsoft.Azure.Devices.TransportType;
-using Microsoft.Azure.Amqp.Framing;
 
 namespace simulatedDevice
 {
